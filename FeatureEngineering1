@@ -1,1 +1,212 @@
+#----------------------------import all relevant packages-----------------------------------
+import pandas as pd
+import numpy as np
+from matplotlib import pyplot as plt
+import seaborn as sns
+import statistics
+
+#----------------------------Read CSV File--------------------------------------------------
+df2 = pd.read_csv("/Users/amitojkulwinder/Desktop/", delimiter=';')
+# Please note that we have decided a dummy data, that shows the underlying columns and example 
+# of how the dataset looks due to confidentiality of the partner organization 
+
+#----------------------------Data Exploration------------------------------------------------
+df.info()
+df.describe(include=['object', 'int32', 'int64', 'float64', 'bool', 'timedelta', 'category'])
+# transform datetime from object to date time
+df['StartDateTime'] = pd.to_datetime(df['StartDateTime'])
+#convert StartDateTime to a datetime variable
+
+#----------------------------Data Cleaning---------------------------------------------------
+#if drastic difference between 2 values drop than value of one is the value of the other
+def adjust_rechts_links_values(rechts, links, name1, name2):
+    rechts = np.array(rechts)
+    links = np.array(links)
+    print("function called")
+    for i in range(0,len(rechts)-1):
+        if ((rechts[i] - links [i]) > 1000):
+            links[i] = rechts[i]
+        elif ((links[i] - rechts[i] > 1000)):
+            rechts[i] = links[i]
+
+    print(len(rechts))
+    print(len(links))
+    result = { name1: rechts , name2: links}
+    data = pd.DataFrame(result)
+    return data
+ 
+#----------------------------Plotting a timeseries-----------------------------------------------
+def plot_time_series(time,data):
+    x = time
+    y = data
+    default_x_ticks = range(len(x))
+    plt.xlabel("Time")
+    plt.ylabel("Value")
+    plt.plot(default_x_ticks, y)
+    plt.xticks(default_x_ticks, x)
+    return plt.show()
+#----------------------------Plotting the distribution--------------------------------------------
+def plot_dist(name):
+    subset = df[name]
+    sns.displot(subset[df[name]>1])
+    return plt.show()
+    
+#----------------------------Making boards and computing average values---------------------------
+def make_boards_links_rechts(voor,na):
+    boardlinks = 0
+    boardrechts = 0
+    boarddatalinks = []
+    boarddatarechts = []
+    for row in range (0,len(na)-1):
+        if ((na[row]-na[row + 1]) > 1000):
+            boardrechts +=1
+            boarddatarechts.append(boardrechts)
+            while ((len(boarddatarechts) - len(boarddatalinks)) > 0 ):
+                boarddatalinks.append(0)
+        if ((voor[row]-voor[row+1]) > 1000):
+            boardlinks +=1
+            boarddatalinks.append(boardlinks)
+    result = {'board_voor' : boarddatalinks, 'boardna': boarddatarechts}
+    end_result = pd.DataFrame(result)
+    return end_result
+
+def compute_average_value_of_board_sensor(data):
+    row = 0 #row number
+    counter = 0 ### amount of observations in board
+    value = 0
+    value_data = []
+    for row in range (0,(len(data) -1 )):
+        if (data[row] - data[row+1]) == 0:
+            continue
+        if abs((data[row] - data[row+1])) < 1000:
+            counter = counter + 1
+            value = value + data[row]
+        elif (data[row+1] - data[row]) < (-1000):
+            counter = counter +1
+            value = value + data[row]
+            value = round(value/counter)
+            value_data.append(value)
+            counter = 0
+            value = 0
+    end_result = np.array(value_data)
+    return end_result
+
+#----------------------------Make the variable for the amount of boards larger then treshhold----------
+def calculate_boards_treshold(data, windowsize, treshhold):
+    counter = 0
+    result = []
+    for i in range(0,len(data)):
+        if (i+windowsize < len(data)):
+            for j in range (0,windowsize):
+                if (data[i+j] > treshhold):
+                    counter+=1
+                else: continue
+            result.append(counter)
+            counter = 0
+        else:
+            for j in range (0,windowsize):
+                if (data[i+j] > treshhold):
+                    counter+=1
+                else: continue
+            result.append(counter)
+            counter = 0
+            windowsize -= 1
+    return result
+
+#----------------------------feature engineering to make difference variable---------------------------
+def calculate_difference(rechts, links):
+    result = abs(rechts - links)
+    return result
+    
+def compute_average(rechts, links):
+    result = (rechts + links)/2
+    return result
+    
+#----------------------------Assign values to dummy boards---------------------------------------------
+def adjust_0_boards(board_voor,value):
+    value_assigned = []
+    counter = 0
+    for i in range(0, len(board_voor)):
+        #print(i)
+        if counter < (len(value) -1):
+            if board_voor[i] != 0:
+            #print("board")
+            #print(board_voor[i])
+            #print('value')
+            #print(value[counter])
+                value_assigned.append(value[counter])
+                counter +=1
+            else:
+            #print("board")
+            #print(board_voor[i])
+            #print('value')
+            #print(value[counter])
+                value_assigned.append(value[counter])
+        else: value_assigned.append(value[counter])
+    result = np.array(value_assigned)
+    return result
+#----------------------------Assign board number to dummy board---------------------------------------------
+def reset_board_number(board):
+    for i in range(0, len(board)-1):
+        board[i]=i+1
+    return board
+#----------------------------Execution function-------------------------------------------------------------
+def main():
+    #drop NaN Values
+    df.dropna()
+    #drop irrelevant rows 
+    list_of_dropped_rows_rechts = df.index[df["Dikte_Na_Rechts_value"] > 9000].tolist()
+    df.drop(list_of_dropped_rows_rechts, axis = 0, inplace=True)
+    df.reset_index()
+    list_of_dropped_rows_links = df.index[df["Dikte_Na_Links_value"] > 9000].tolist()
+    df.drop(list_of_dropped_rows_links, axis=0, inplace=True)
+    df.reset_index()
+    new_list = df.index[(df['Dikte_voor_Rechts_value'] < 9000) & (df['Dikte_voor_Rechts_value'] > 1)].tolist()
+    df.drop(new_list, axis=0, inplace=True)
+    df.reset_index()
+    new_list2 = df.index[(df['Dikte_voor_Links_value'] < 9000) & (df['Dikte_voor_Links_value'] > 1)].tolist()
+    df.drop(new_list2, axis=0, inplace=True)
+    df.reset_index()
+    #adjust values due to measurement errror
+    df2 = adjust_rechts_links_values(df['Dikte_voor_Rechts_value'],df['Dikte_voor_Links_value'],'Dikte_voor_Rechts_value','Dikte_voor_Links_value' )
+    df3 = adjust_rechts_links_values(df['Dikte_Na_Rechts_value'],df['Dikte_Na_Links_value'],'Dikte_Na_Rechts_value','Dikte_Na_Links_value' )
+    df2.to_csv("/Users/amitojkulwinder/Desktop/Thesis_Etex_Project/Sanety_check_platen_voor.csv")
+    df3.to_csv("/Users/amitojkulwinder/Desktop/Thesis_Etex_Project/Sanety_check_platen_na.csv")
+    df2.dropna()
+    df3.dropna()
+
+    boards = make_boards_links_rechts(df2['Dikte_voor_Rechts_value'],df3['Dikte_Na_Rechts_value'])
+    boards= make_boards_links_rechts(df2['Dikte_voor_Links_value'],df3['Dikte_Na_Links_value'])
+    board_data_final1 = np.array(boards['boardna'])
+    board_data_final2 = np.array(boards['board_voor'])
+    Average_rechtsvoor = compute_average_value_of_board_sensor(df2['Dikte_voor_Rechts_value'])
+    Average_linksvoor = compute_average_value_of_board_sensor(df2['Dikte_voor_Links_value'])
+    Average_rechtsachter = compute_average_value_of_board_sensor(df3['Dikte_Na_Rechts_value'])
+    Average_linksachter = compute_average_value_of_board_sensor(df3['Dikte_Na_Links_value'])
+    
+    Average_rechtsvoor_adjusted = adjust_0_boards(boards['board_voor'],Average_rechtsvoor)
+    Average_linksvoor_adjusted = adjust_0_boards(boards['board_voor'], Average_linksvoor)
+    average_voor = compute_average(Average_rechtsvoor_adjusted, Average_linksvoor_adjusted)
+    average_na = compute_average(Average_linksachter, Average_rechtsachter)
+    difference_after_links_rechts = calculate_difference(Average_rechtsachter, Average_linksachter)
+    difference_voor_na = calculate_difference(average_voor, average_na)
+    boards_above_treshhold = calculate_boards_treshold(Average_rechtsachter, 10, 8600)
+    board_data_final = boards['board_voor']
+    
+    #put al columns in a dataframe
+    result = {'Board_Number' : board_data_final, 'Average_Rechts_Voor': Average_rechtsvoor_adjusted, 'Average_Links_Voor' : Average_linksvoor_adjusted,
+              'Average_Rechts_Achter' : Average_rechtsachter, 'Average_Links_Achter': Average_linksachter, 'Average_Voor' : average_voor
+              , 'Average_Na' : average_na, 'difference_after_links_rechts': difference_after_links_rechts,
+              'difference_voor_na' : difference_voor_na, 'boards_above_tresh': boards_above_treshhold}
+    end_result = pd.DataFrame(result)
+    #list_of_dropped_rows= end_result.index[df["Board_Number"] == 0].tolist()
+    #end_result.drop(list_of_dropped_rows, axis = 0, inplace=True)
+    #end_result.reset_index()
+    return end_result
+
+#----------------------------Save results to file-------------------------------------------------------------
+#Modelling_data = main()
+#Modelling_data.to_csv("/Users/amitojkulwinder/Desktop/output.csv")
+    
+
 
