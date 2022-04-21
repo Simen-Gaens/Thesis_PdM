@@ -1,1 +1,252 @@
+#---------------import packages
+import pandas as pd
+import numpy as np
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+import sklearn as sk
+from matplotlib import pyplot as plt
+import seaborn as sns
+import math
+import statistics
 
+#---------------read feature engineered file
+data = pd.read_csv('/Users/amitojkulwinder/Desktop/', delimiter=";", decimal=",", encoding="utf-8")
+data.head()
+data.info()
+
+#----------------correction algorithm for the timeseries
+def correct_time_series(data,windowsize):
+    loopcounter = len(data)/windowsize
+    loopcounter = math.trunc(loopcounter)
+    loopcounter = int(loopcounter)
+    value_list = []
+    for i in range(0,loopcounter):
+        subset_data = data[(i*windowsize): ((i+1)*windowsize)]
+        for j in range(0,len(subset_data)):
+            value_list.append(subset_data.value_counts().idxmax())
+
+    subset_data = data[(loopcounter * windowsize) : ]
+    for j in range(0, len(subset_data)):
+        value_list.append(subset_data.value_counts().idxmax())
+    return value_list
+  
+ #-------------compute average on a specific window
+ def compute_average_diff_voor_na(data,window):
+    result = []
+    for i in range(0,len(data)):
+        if (i+window < len(data)):
+            subset_data = data[i: i+window]
+            average = round(statistics.mean(subset_data))
+            result.append(average)
+        else:
+            subset_data = data[i: i+window]
+            average = round(statistics.mean(subset_data))
+            result.append(average)
+            window -= 1
+    return result
+   
+data['difference_voor_na']=pd.to_numeric(data['difference_voor_na'], errors='coerce')
+data['difference_voor_na'] = data['difference_voor_na'].astype("int64")
+
+#compute min max in a window of 10
+    result = []
+    for i in range(0,len(data)):
+        if (i+window < len(data)):
+            subset_data = data[i: i+window]
+            max = subset_data.max()
+            min = subset_data.min()
+            diff = max - min
+            result.append(diff)
+        else:
+            subset_data = data[i: i+window]
+            max = subset_data.max()
+            min = subset_data.min()
+            diff = max - min
+            result.append(diff)
+            window -= 1
+    return result
+    
+#volatility in average na in a window of 10
+
+def compute_volatility(data,window):
+    result = []
+    for i in range(0,len(data)):
+        if (i+window < len(data)):
+            subset_data = data[i: i+window]
+            volatility = round(statistics.stdev(subset_data))
+            print(volatility)
+            result.append(volatility)
+        elif(window > 1):
+            subset_data = data[i: i+window]
+            volatility = round(statistics.stdev(subset_data))
+            result.append(volatility)
+            window -= 1
+        else : result.append(data/statistics.mean(data))
+    return result
+
+data['Average_Na']=pd.to_numeric(data['Average_Na'], errors='coerce')
+data['Average_Na'] = data['Average_Na'].astype("int64")
+
+#calculate boards till states
+def calculate_boards_till_mediate(data):
+    counter = 0
+    result = []
+    for i in range(0,len(data)):
+        if data[i] != 'mediate state':
+            counter +=1
+        else:
+            result.append(counter)
+            counter = 0
+    value_list = []
+    for i in range(0,len(result)):
+        tipping_point = result[i]
+        while( tipping_point > -1):
+            value_list.append(tipping_point)
+            tipping_point = tipping_point-1
+    while (len(value_list) != len(data)):
+        value_list.append(0)
+    return value_list
+
+# calculate boards till bad state
+def calculate_boards_till_bad(data):
+    counter = 0
+    result = []
+    for i in range(0,len(data)):
+        if data[i] != 'bad state':
+            counter +=1
+        else:
+            result.append(counter)
+            counter = 0
+    print(result)
+    value_list = []
+    for i in range(0,len(result)):
+        tipping_point = result[i]
+        while( tipping_point > -1):
+            value_list.append(tipping_point)
+            tipping_point = tipping_point-1
+    while (len(value_list) != len(data)):
+        value_list.append(0)
+    return value_list
+
+#make first target feature
+def make_target_feature_mediate(data):
+    if 0 <= data <= 200:
+        return 'Between 0 and 200'
+    elif 201 <= data <= 400:
+        return 'Between 201 and 400'
+    elif 401 <= data <= 600:
+        return 'Between 401 and 600'
+    elif 601 <= data <= 800:
+        return 'Between 601 and 800'
+    elif 801 <= data <= 1000:
+        return 'Between 801 and 1000'
+    else: return 'Larger than 1000'
+
+#make second target feature
+def make_target_feature_bad(data):
+    if 0 <= data <= 200:
+        return 'Between 0 and 200'
+    elif 201 <= data <= 400:
+        return 'Between 201 and 400'
+    elif 401 <= data <= 600:
+        return 'Between 401 and 600'
+    elif 601 <= data <= 800:
+        return 'Between 601 and 800'
+    elif 801 <= data <= 1000:
+        return 'Between 801 and 1000'
+    else: return 'Larger than 1000'
+    
+#execution
+def main():
+    #makethe features
+
+    #first we correct the values
+    states = {'corrected state' : correct_time_series(data['abovetreshhold'],20)}
+    states = pd.DataFrame(states)
+    data['corrected state'] = states
+    #we calculate for everyboard the following state
+    boards_till_mediate = {'boards_till_mediate' : calculate_boards_till_mediate(data['corrected state'])}
+    boards_till_mediate = pd.DataFrame(boards_till_mediate)
+    data['boards_till_mediate'] = boards_till_mediate
+    data['boards_till_mediate'] = data['boards_till_mediate'].apply(lambda x: make_target_feature_mediate(x)).astype("category")
+
+    boards_till_bad = {'boards_till_bad' : calculate_boards_till_bad(data['corrected state'])}
+    boards_till_bad = pd.DataFrame(boards_till_bad)
+    data['boards_till_bad'] = boards_till_bad
+    data['boards_till_bad'] = data['boards_till_bad'].apply(lambda x: make_target_feature_bad(x)).astype("category")
+
+    average_diff_window_10_voor_na = { 'average_diff_window_10_voor_na' : compute_average_diff_voor_na(data['difference_voor_na'],10)}
+    average_diff_window_10_voor_na = pd.DataFrame(average_diff_window_10_voor_na)
+    data['average_diff_window_10_voor_na'] = average_diff_window_10_voor_na
+
+    average_diff_window_10_Left_right = {'average_diff_window_10_Left_right' : compute_average_diff_voor_na(data['difference_after_links_rechts'],10)}
+    average_diff_window_10_Left_right = pd.DataFrame(average_diff_window_10_Left_right)
+    data['average_diff_window_10_Left_right'] = average_diff_window_10_Left_right
+
+    min_max_left_right_in_window_10 = {'min_max_left_right_in_window_10' : calculate_min_max_diff_right_left(data['difference_after_links_rechts'],10)}
+    min_max_left_right_in_window_10 = pd.DataFrame(min_max_left_right_in_window_10)
+    data['min_max_left_right_in_window_10'] = min_max_left_right_in_window_10
+
+    min_max_voor_na_window_10 = {'min_max_voor_na_window_10' : calculate_min_max_diff_right_left(data['difference_voor_na'],10)}
+    min_max_voor_na_window_10 = pd.DataFrame(min_max_voor_na_window_10)
+    data['min_max_voor_na_window_10'] = min_max_voor_na_window_10
+
+    volatility_left_sensor = {'volatility_left_sensor' : compute_volatility(data['Average_Links_Achter'],10)}
+    volatility_left_sensor = pd.DataFrame(volatility_left_sensor)
+    data['volatility_left_sensor'] = volatility_left_sensor
+
+    volatility_right_sensor = {'volatility_right_sensor' : compute_volatility(data['Average_Rechts_Achter'],10)}
+    volatility_right_sensor = pd.DataFrame(volatility_right_sensor)
+    data['volatility_right_sensor'] = volatility_right_sensor
+
+    volatility_after = {'volatility_after' : compute_volatility(data['Average_Na'],10)}
+    volatility_after = pd.DataFrame(volatility_after)
+    data['volatility_after'] = volatility_after
+    
+    return data
+
+#save to csv 
+result = main()
+result.to_csv('/Users/amitojkulwinder/Desktop/')
+
+#count markov data 
+def count_markov_data(data):
+    healthy_to_mediate = 0
+    healthy_to_bad = 0
+    mediate_to_bad = 0
+    mediate_to_healthy = 0
+    bad_to_mediate = 0
+    bad_to_healthy = 0
+    mediate_to_mediate = 0
+    healthy_to_healthy = 0
+    bad_to_bad = 0
+    for i in range(0,len(data)-1):
+        if (data[i] == "healthy state") and (data[i+1] == "mediate state") :
+            healthy_to_mediate +=1
+        elif (data[i] == "mediate state") and (data[i+1] == "healthy state") :
+            mediate_to_healthy += 1
+        elif (data[i] == "healthy state") and (data[i+1] == "bad state") :
+            healthy_to_bad +=1
+        elif (data[i] == "mediate state") and (data[i+1] == "bad state") :
+            mediate_to_bad +=1
+        elif (data[i] == "bad state") and (data[i+1] == "mediate state"):
+            bad_to_mediate +=1
+        elif (data[i] == "bad state") and (data[i+1] == "healthy state"):
+            bad_to_healthy +=1
+        elif (data[i] == "mediate state") and (data[i+1] == "mediate state") :
+            mediate_to_mediate += 1
+        elif (data[i] == "healthy state") and (data[i+1] == "healthy state") :
+            healthy_to_healthy += 1
+        elif (data[i] == "bad state") and (data[i+1] == "bad state") :
+            bad_to_bad += 1
+
+    result = { 'healthy_to_mediate' : healthy_to_mediate,
+               'healthy_to_bad' : healthy_to_bad,
+               'mediate_to_bad' : mediate_to_bad,
+               'mediate_to_healthy' : mediate_to_healthy,
+               'bad_to_mediate' : bad_to_mediate,
+               'bad_to_healthy' : bad_to_healthy,
+               'mediate_to_mediate' : mediate_to_mediate,
+               'healthy_to_healthy' : healthy_to_healthy,
+               'bad_to_bad' : bad_to_bad}
+    return result
