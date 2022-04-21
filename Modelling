@@ -1,1 +1,284 @@
 #Model development
+#Import initial packages and the dataset
+import pandas as pd
+import numpy as np
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+import sklearn as sk
+import matplotlib as plt
+import seaborn as sns
+
+data = pd.read_csv('Dataset.csv', delimiter=";", decimal=",", encoding="utf-8")
+
+data.head()
+data.info()
+
+#############################
+
+#Ensure int/float features are numeric
+data['Average_Voor']=pd.to_numeric(data['Average_Voor'], errors='coerce')
+data['difference_voor_na']=pd.to_numeric(data['difference_voor_na'], errors='coerce') 
+data['volatility_left_sensor']=pd.to_numeric(data['volatility_left_sensor'], errors='coerce') 
+data['volatility_right_sensor']=pd.to_numeric(data['volatility_left_sensor'], errors='coerce') 
+data['volatility_after']=pd.to_numeric(data['volatility_left_sensor'], errors='coerce') 
+
+#Ensure correct dtypes
+data['Average_Voor'] = data['Average_Voor'].astype("int64")
+data['difference_voor_na'] = data['difference_voor_na'].astype("int64")
+data['volatility_left_sensor'] = data['volatility_left_sensor'].astype("float64")
+data['abovetreshhold'] = data['abovetreshhold'].astype("category")
+data['corrected state'] = data['corrected state'].astype("category")
+data['boards_till_mediate'] = data['boards_till_mediate'].astype("category")
+data['boards_till_bad'] = data['boards_till_bad'].astype("category")
+
+#Make categoricals into their cat.codes so we can model on them
+data['corrected state'] = data['corrected state'].cat.codes
+data['abovetreshhold'] = data['abovetreshhold'].cat.codes
+
+##############################
+#Check Null values
+data.isnull().sum()
+
+
+def Fix_Null(feature):
+    fill_value= feature.mode()[0]
+    feature.fillna(fill_value, inplace = True)
+
+Fix_Null(data['volatility_left_sensor'])
+Fix_Null(data['volatility_right_sensor'])
+Fix_Null(data['volatility_after'])
+
+
+
+data.describe()
+data.info()
+
+############################
+#Check division of target variables
+print(data.abovetreshhold.value_counts(normalize=True))
+data.abovetreshhold.value_counts(normalize=True).plot.pie()
+
+print(data.boards_till_mediate.value_counts(normalize=True))
+data.boards_till_mediate.value_counts(normalize=True).plot.pie()
+
+print(data.boards_till_bad.value_counts(normalize=True))
+data.boards_till_bad.value_counts(normalize=True).plot.pie()
+
+############################
+#Plotting
+sns.pairplot(data = data, vars=['difference_voor_na','difference_after_links_rechts','abovetreshhold'])
+sns.pairplot(data = data, vars=['volatility_after','boards_till_bad'])
+
+sns.pairplot(data = data, vars=['min_max_left_right_in_window_10','min_max_voor_na_window_10','volatility_after','boards_till_bad'])
+sns.pairplot(data = data, vars=['min_max_left_right_in_window_10','min_max_voor_na_window_10','volatility_after','boards_till_mediate'])
+
+#Correlation plotting
+sns.heatmap(data.corr(), annot=True, cmap = 'Reds')
+data.corr()
+
+############################
+#Correlation and covariance of target
+from numpy import cov
+covariance= cov(data['boards_till_mediate'],data['boards_till_bad'])
+covariance
+
+from scipy.stats import pearsonr
+corr= pearsonr(data['boards_till_mediate'],data['boards_till_bad'])
+corr
+
+############################
+#Volatility after/left/right sensor are highly correlated, as well as Average recht/links voor
+#Groupby to see if initial 
+data.groupby('abovetreshhold')['difference_voor_na'].mean()
+
+data.groupby('boards_till_mediate')['difference_voor_na'].mean() #Rather intuitive except first category
+data.groupby('boards_till_bad')['difference_voor_na'].mean() #Seems to be a lot less intuitive
+
+data.groupby('boards_till_mediate')['difference_after_links_rechts'].mean()
+data.groupby('boards_till_bad')['difference_after_links_rechts'].mean() #Median makes more sense
+
+data.groupby('boards_till_mediate')['volatility_after'].mean()
+data.groupby('boards_till_bad')['volatility_after'].mean()
+
+data.groupby('boards_till_mediate')['average_diff_window_10_voor_na'].mean()
+data.groupby('boards_till_bad')['average_diff_window_10_voor_na'].mean()
+
+data.groupby('boards_till_mediate')['min_max_voor_na_window_10'].mean()
+data.groupby('boards_till_bad')['min_max_voor_na_window_10'].mean()
+
+##########################
+
+#Board till plots
+sns.boxplot(data['boards_till_mediate'], data['difference_after_links_rechts'])
+sns.boxplot(data['boards_till_mediate'], data['difference_voor_na'])
+
+sns.boxplot(data['boards_till_bad'], data['difference_after_links_rechts'])
+sns.boxplot(data['boards_till_bad'], data['difference_voor_na'])
+
+sns.boxplot(data['boards_till_mediate'], data['min_max_voor_na_window_10'])
+sns.boxplot(data['boards_till_mediate'], data['min_max_left_right_in_window_10'])
+
+sns.boxplot(data['boards_till_bad'], data['min_max_voor_na_window_10'])
+sns.boxplot(data['boards_till_bad'], data['min_max_left_right_in_window_10'])
+
+################################
+#First variable in initial model
+sns.boxplot(data['abovetreshhold'], data['Average_Voor'])
+sns.boxplot(data['abovetreshhold'], data['volatility_after'])
+sns.boxplot(data['abovetreshhold'], data['difference_after_links_rechts'])
+sns.boxplot(data['abovetreshhold'], data['difference_voor_na'])
+sns.boxplot(data['abovetreshhold'], data['boards_till_mediate'])
+sns.boxplot(data['abovetreshhold'], data['boards_till_bad'])
+sns.boxplot(data['abovetreshhold'], data['average_diff_window_10_Left_right'])
+sns.boxplot(data['abovetreshhold'], data['min_max_left_right_in_window_10'])
+sns.boxplot(data['abovetreshhold'], data['min_max_voor_na_window_10'])
+
+################################
+#Deal with extreme Values
+from scipy import stats
+
+def limit_extreme(df):
+    z=np.abs(stats.zscore(df))
+    data_clean=data[(z< 3)]
+    return data_clean
+
+limit_extreme(data['Average_Voor'])  
+limit_extreme(data['difference_voor_na'])
+limit_extreme(data['Average_Rechts_Voor'])
+limit_extreme(data['difference_after_links_rechts'])  
+limit_extreme(data['difference_voor_na'])  
+limit_extreme(data['volatility_after'])  
+limit_extreme(data['average_diff_window_10_Left_right'])  
+limit_extreme(data['min_max_left_right_in_window_10'])  
+limit_extreme(data['min_max_voor_na_window_10'])  
+limit_extreme(data['volatility_right_sensor'])  
+limit_extreme(data['volatility_left_sensor'])  
+limit_extreme(data['difference_voor_na'])  
+
+#############################
+#Delete unnecessary features
+
+try:
+    del data['Average_Na']
+    del data['Average_Rechts_Achter']
+    del data['Average_Links_Achter']
+    del data['Average_Rechts_Voor']
+    del data['Average_Links_Voor']
+    del data['volatility_left_sensor']
+    del data['volatility_right_sensor']
+except:
+    pass
+    
+################################
+#Train test splits
+y1_data = data['boards_till_mediate']
+y2_data = data['boards_till_bad'] 
+data1=data.drop('boards_till_mediate', inplace=False, axis=1)
+
+data2=data1.drop('boards_till_bad', inplace=False, axis=1)
+data1['boards_till_mediate'] = data['boards_till_mediate'].cat.codes
+
+
+
+X1_train, X1_test, y1_train, y1_test = train_test_split(data1, y1_data, test_size=0.3, random_state=1)
+X2_train, X2_test, y2_train, y2_test = train_test_split(data2, y2_data, test_size=0.3, random_state=1)
+
+###########################
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import f1_score
+
+#RF boards_till_mediate
+rf1=RandomForestClassifier(n_estimators=100, random_state=42,bootstrap=True, oob_score=True)
+rf1.fit(X1_train, y1_train)
+rf1.score(X1_test, y1_test)
+
+y1_pred=rf1.predict(X1_test)
+cf1=confusion_matrix(y1_test, y1_pred)
+sns.heatmap(cf1/np.sum(cf1), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y1_test, y1_pred, average='weighted')
+
+##########################
+#RF boards_till_bad
+rf2=RandomForestClassifier(n_estimators=100, random_state=1, bootstrap=True, oob_score=True)
+rf2.fit(X2_train, y2_train)
+
+rf2.score(X2_train, y2_train)
+rf2.score(X2_test, y2_test)
+
+y2_pred=rf2.predict(X2_test)
+cf2=confusion_matrix(y2_test, y2_pred)
+sns.heatmap(cf2/np.sum(cf2), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y2_test, y2_pred, average='weighted')
+
+#############################
+from xgboost import XGBClassifier
+
+#XG model boards_till_mediate
+XG1 = XGBClassifier(use_label_encoder=True, eval_metric='mlogloss', sampling_method='gradient_based')
+XG1.fit(X1_train, y1_train)
+
+XG1.score(X1_train, y1_train)
+XG1.score(X1_test, y1_test)
+
+y3_pred=XG1.predict(X1_test)
+cf3=confusion_matrix(y1_test, y3_pred)
+sns.heatmap(cf3/np.sum(cf3), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y1_test, y3_pred, average='weighted')
+
+#############################
+#XG model boards_till_bad
+XG2 = XGBClassifier(use_label_encoder=True, eval_metric='mlogloss',sampling_method='gradient_based')
+XG2.fit(X2_train, y2_train)
+
+XG2.score(X2_train, y2_train)
+XG2.score(X2_test, y2_test)
+
+y4_pred=XG2.predict(X2_test)
+cf4=confusion_matrix(y1_test, y1_pred)
+sns.heatmap(cf4/np.sum(cf4), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y2_test, y4_pred, average='weighted')
+
+
+
+##############################################################
+
+#Trying randomized/grid search
+
+#from sklearn.model_selection import RandomizedSearchCV
+# Number of trees in random forest
+#n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
+# Number of features to consider at every split
+#max_features = ['auto', 'sqrt']
+# Maximum number of levels in tree
+#max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
+#max_depth.append(None)
+# Minimum number of samples required to split a node
+#min_samples_split = [2, 5, 10]
+# Minimum number of samples required at each leaf node
+#min_samples_leaf = [1, 2, 4]
+# Method of selecting samples for training each tree
+#bootstrap = [True, False]
+# Create the random grid
+#grid = {'n_estimators': n_estimators,
+ #              'max_features': max_features,
+  #             'max_depth': max_depth,
+   #            'min_samples_split': min_samples_split,
+    #           'min_samples_leaf': min_samples_leaf,
+     #          'bootstrap': bootstrap}
+
+#randomS = RandomizedSearchCV(estimator = RandomForestClassifier(), param_distributions = grid, n_iter = 100, cv = 4, verbose=2, random_state=0, n_jobs = 4)
+#randomS.fit(X_train, y_train)  #Takes super long, maybe try in databricks
+#randomS.best_params_
