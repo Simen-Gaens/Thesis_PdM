@@ -168,6 +168,7 @@ try:
     del data['volatility_right_sensor']
     del data['Board_Number']
     del data['corrected state']
+    del data['Average_Voor']
 except:
     pass
     
@@ -257,7 +258,94 @@ f1_score(y2_test, y4_pred, average='weighted')
 
 ##############################################################
 
-#Trying randomized/grid search
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.ensemble import RandomForestClassifier
+from scipy.stats import uniform, truncnorm, randint
+
+#Random search
+model_params = {
+    # randomly sample numbers from 4 to 204 estimators
+    'n_estimators': randint(4,200),
+    # normally distributed max_features, with mean .25 stddev 0.1, bounded between 0 and 1
+    'max_features': truncnorm(a=0, b=1, loc=0.25, scale=0.1),
+    # uniform distribution from 0.01 to 0.2 (0.01 + 0.199)
+    'min_samples_split': uniform(0.01, 0.199)
+}
+
+rf_model = RandomForestClassifier()
+clf = RandomizedSearchCV(rf_model, model_params, n_iter=100, cv=5, random_state=1)
+rf_model=clf.fit(X1_train, y1_train)
+
+from pprint import pprint
+pprint(rf_model.best_estimator_.get_params())
+#################################################
+
+rf_rand=RandomForestClassifier(n_estimators=170, max_features=0.2635, min_samples_split= 0.013697, min_samples_leaf=1, criterion= 'gini', bootstrap= True)
+rf_rand.fit(X1_train, y1_train)
+
+rf_rand.score(X1_train, y1_train)
+rf_rand.score(X1_test, y1_test)
+
+yrand_pred=rf_rand.predict(X1_test)
+cfrand=confusion_matrix(y1_test, yrand_pred)
+sns.heatmap(cfrand/np.sum(cfrand), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y1_test, yrand_pred, average='weighted')
+rf_rand.score(X1_train, y1_train)
+rf_rand.score(X1_test, y1_test)
+
+
+rf_rand=RandomForestClassifier(n_estimators=170, max_features=0.2635, min_samples_split= 0.013697, min_samples_leaf=1, criterion= 'gini', bootstrap= True)
+rf_rand.fit(X2_train, y2_train)
+
+rf_rand.score(X2_train, y2_train)
+rf_rand.score(X2_test, y2_test)
+
+yrand2_pred=rf_rand.predict(X2_test)
+cfrand2=confusion_matrix(y2_test, yrand2_pred)
+sns.heatmap(cfrand/np.sum(cfrand), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y2_test, yrand2_pred, average='weighted')
+###################################################
+#Gridsearch
+
+rfc=RandomForestClassifier(random_state=42)
+
+param_grid = { 
+    'n_estimators': [100,150,200],
+    'max_features': ['auto', 'sqrt', 'log2'],
+    'max_depth' : [4,5,6,7],
+    'criterion' :['gini', 'entropy'],
+    'min_samples_split': [0.05,0.1,0.2,0.3]
+}
+
+CV_rfc = GridSearchCV(estimator=rfc, param_grid=param_grid, cv= 5)
+CV_rfc.fit(X1_train, y1_train)
+CV_rfc.best_params_
+
+###############################################
+rf_rand2=RandomForestClassifier(n_estimators=150, max_depth=7, min_samples_split=0.05, criterion= 'gini', max_features= 'auto', bootstrap= True)
+rf_rand2.fit(X1_train, y1_train)
+
+rf_rand2.score(X1_train, y1_train)
+rf_rand2.score(X1_test, y1_test)
+
+yrand3_pred=rf_rand2.predict(X1_test)
+cfrand3=confusion_matrix(y1_test, yrand3_pred)
+sns.heatmap(cfrand3/np.sum(cfrand3), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y1_test, yrand3_pred, average='weighted')
+
+
+
+#A more complicated randomized/grid search that takes too long
 
 #from sklearn.model_selection import RandomizedSearchCV
 # Number of trees in random forest
