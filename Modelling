@@ -204,6 +204,7 @@ sns.heatmap(cf1/np.sum(cf1), annot=True,
 
 f1_score(y1_test, y1_pred, average='weighted')
 
+rf1.get_params()
 ##########################
 #RF boards_till_bad
 rf2=RandomForestClassifier(n_estimators=100, random_state=1, bootstrap=True, oob_score=True)
@@ -268,20 +269,21 @@ model_params = {
     # randomly sample numbers from 4 to 204 estimators
     'n_estimators': randint(4,200),
     # normally distributed max_features, with mean .25 stddev 0.1, bounded between 0 and 1
-    'max_features': truncnorm(a=0, b=1, loc=0.25, scale=0.1),
-    # uniform distribution from 0.01 to 0.2 (0.01 + 0.199)
-    'min_samples_split': uniform(0.01, 0.199)
+    'max_features': randint(3,10),
+    'min_samples_split': randint(1,10),
+    'max_depth' : uniform(4,30)
 }
 
 rf_model = RandomForestClassifier()
-clf = RandomizedSearchCV(rf_model, model_params, n_iter=100, cv=5, random_state=1)
+clf = RandomizedSearchCV(rf_model, model_params, n_iter=60, cv=5, random_state=1)
 rf_model=clf.fit(X1_train, y1_train)
 
 from pprint import pprint
 pprint(rf_model.best_estimator_.get_params())
 #################################################
 
-rf_rand=RandomForestClassifier(n_estimators=170, max_features=0.2635, min_samples_split= 0.013697, min_samples_leaf=1, criterion= 'gini', bootstrap= True)
+#60 iterations
+rf_rand=RandomForestClassifier(n_estimators=38, max_features=9, min_samples_split= 4, min_samples_leaf=1, max_depth = 33.10)
 rf_rand.fit(X1_train, y1_train)
 
 rf_rand.score(X1_train, y1_train)
@@ -294,23 +296,36 @@ sns.heatmap(cfrand/np.sum(cfrand), annot=True,
 
 
 f1_score(y1_test, yrand_pred, average='weighted')
+
+#100 iterations
+
+model_params = {
+    # randomly sample numbers from 4 to 204 estimators
+    'n_estimators': randint(4,200),
+    # normally distributed max_features, with mean .25 stddev 0.1, bounded between 0 and 1
+    'max_features': randint(3,10),
+    'min_samples_split': randint(1,10),
+    'max_depth' : uniform(4,30)
+}
+
+rf_model = RandomForestClassifier()
+clf = RandomizedSearchCV(rf_model, model_params, n_iter=100, cv=5, random_state=1)
+rf_model2=clf.fit(X1_train, y1_train)
+
+
+rf_rand=RandomForestClassifier(n_estimators=165, max_features=7, min_samples_split= 2, min_samples_leaf=1, max_depth = 23.81)
+rf_rand.fit(X1_train, y1_train)
+
 rf_rand.score(X1_train, y1_train)
 rf_rand.score(X1_test, y1_test)
 
-
-rf_rand=RandomForestClassifier(n_estimators=170, max_features=0.2635, min_samples_split= 0.013697, min_samples_leaf=1, criterion= 'gini', bootstrap= True)
-rf_rand.fit(X2_train, y2_train)
-
-rf_rand.score(X2_train, y2_train)
-rf_rand.score(X2_test, y2_test)
-
-yrand2_pred=rf_rand.predict(X2_test)
-cfrand2=confusion_matrix(y2_test, yrand2_pred)
+yrand_pred=rf_rand.predict(X1_test)
+cfrand=confusion_matrix(y1_test, yrand_pred)
 sns.heatmap(cfrand/np.sum(cfrand), annot=True, 
             fmt='.2%', cmap='Blues')
 
 
-f1_score(y2_test, yrand2_pred, average='weighted')
+f1_score(y1_test, yrand_pred, average='weighted')
 ###################################################
 #Gridsearch
 
@@ -318,10 +333,9 @@ rfc=RandomForestClassifier(random_state=42)
 
 param_grid = { 
     'n_estimators': [100,150,200],
-    'max_features': ['auto', 'sqrt', 'log2'],
-    'max_depth' : [4,5,6,7],
-    'criterion' :['gini', 'entropy'],
-    'min_samples_split': [0.05,0.1,0.2,0.3]
+    'max_features': [3,5,7,9],
+    'max_depth' : [12,20,24,30],
+    'min_samples_split': [2,5,9]
 }
 
 CV_rfc = GridSearchCV(estimator=rfc, param_grid=param_grid, cv= 5)
@@ -329,62 +343,266 @@ CV_rfc.fit(X1_train, y1_train)
 CV_rfc.best_params_
 
 ###############################################
-rf_rand2=RandomForestClassifier(n_estimators=150, max_depth=7, min_samples_split=0.05, criterion= 'gini', max_features= 'auto', bootstrap= True)
-rf_rand2.fit(X1_train, y1_train)
+#Grid search boards_till_mediate
+rf_grid=RandomForestClassifier(n_estimators=200, max_depth=30, min_samples_split=2, max_features= 9)
+rf_grid.fit(X1_train, y1_train)
 
-rf_rand2.score(X1_train, y1_train)
-rf_rand2.score(X1_test, y1_test)
+rf_grid.score(X1_train, y1_train)
+rf_grid.score(X1_test, y1_test)
 
-yrand3_pred=rf_rand2.predict(X1_test)
-cfrand3=confusion_matrix(y1_test, yrand3_pred)
-sns.heatmap(cfrand3/np.sum(cfrand3), annot=True, 
+ygrid_pred=rf_grid.predict(X1_test)
+cfgrid=confusion_matrix(y1_test, ygrid_pred)
+sns.heatmap(cfgrid/np.sum(cfgrid), annot=True, 
             fmt='.2%', cmap='Blues')
 
 
-f1_score(y1_test, yrand3_pred, average='weighted')
-
-
-
-#A more complicated randomized/grid search that takes too long
-
-#from sklearn.model_selection import RandomizedSearchCV
-# Number of trees in random forest
-#n_estimators = [int(x) for x in np.linspace(start = 200, stop = 2000, num = 10)]
-# Number of features to consider at every split
-#max_features = ['auto', 'sqrt']
-# Maximum number of levels in tree
-#max_depth = [int(x) for x in np.linspace(10, 110, num = 11)]
-#max_depth.append(None)
-# Minimum number of samples required to split a node
-#min_samples_split = [2, 5, 10]
-# Minimum number of samples required at each leaf node
-#min_samples_leaf = [1, 2, 4]
-# Method of selecting samples for training each tree
-#bootstrap = [True, False]
-# Create the random grid
-#grid = {'n_estimators': n_estimators,
- #              'max_features': max_features,
-  #             'max_depth': max_depth,
-   #            'min_samples_split': min_samples_split,
-    #           'min_samples_leaf': min_samples_leaf,
-     #          'bootstrap': bootstrap}
-
-#randomS = RandomizedSearchCV(estimator = RandomForestClassifier(), param_distributions = grid, n_iter = 100, cv = 4, verbose=2, random_state=0, n_jobs = 4)
-#randomS.fit(X_train, y_train)  #Takes super long, maybe try in databricks
-#randomS.best_params_
+f1_score(y1_test, ygrid_pred, average='weighted')
 
 ###################################
+#Bayesian optimisation
+!pip install bayesian-optimization
+!pip install bayes_opt
+#Importing necessary libraries
+from bayes_opt import BayesianOptimization
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error
 
-rfc=RandomForestClassifier(random_state=42)
-param_grid = { 
-    'n_estimators': [5,50,100,150,200],
-    'max_features': ['auto', 'sqrt', 'log2'],
-    'max_depth' : [4,5,6,7,8],
-    'criterion' :['gini', 'entropy'],
-    'min_samples_split': [0.01,0.05,0.1,0.15,0.2,0.3]
-}
+X1_train = pd.DataFrame(X1_train)
+X1_test = pd.DataFrame(X1_test)
+#y1_train = pd.DataFrame(y1_train)
+#y1_test = pd.DataFrame(y1_test)
 
-CV_rfc = GridSearchCV(estimator=rfc, param_grid=param_grid, cv= 5)
 
-CV_rfc.fit(X1_train, y1_train)
-CV_rfc.best_params_
+X2_train = pd.DataFrame(X2_train)
+X2_test = pd.DataFrame(X2_test)
+
+#!pip install hyperopt
+from hyperopt import hp
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split,cross_val_score,StratifiedKFold
+from sklearn.metrics import confusion_matrix,classification_report,precision_score, recall_score, f1_score, accuracy_score
+from sklearn.ensemble import RandomForestClassifier
+from bayes_opt import BayesianOptimization
+
+
+#5 iterations
+def clean_dataset(df):
+    assert isinstance(df, pd.DataFrame), "df needs to be a pd.DataFrame"
+    df.dropna(inplace=True)
+    indices_to_keep = ~df.isin([np.nan, np.inf, -np.inf]).any(1)
+    return df[indices_to_keep].astype(np.float64)
+
+
+
+clean_dataset(X1_train)
+clean_dataset(X2_train)
+
+def stratified_kfold_score(clf,X,y,n_fold):
+    X,y = X.values,y.values
+    strat_kfold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=1)
+    accuracy_list = []
+
+    for train_index, test_index in strat_kfold.split(X, y):
+        x_train_fold, x_test_fold = X[train_index], X[test_index]
+        y_train_fold, y_test_fold = y[train_index], y[test_index]
+        clf.fit(x_train_fold, y_train_fold)
+        preds = clf.predict(x_test_fold)
+        accuracy_test = accuracy_score(preds,y_test_fold)
+        accuracy_list.append(accuracy_test)
+
+    return np.array(accuracy_list).mean()
+
+def bo_params_rf(n_estimators,max_depth, max_features, min_samples_split):
+    
+    params = {
+        'max_depth':max_depth,
+        'n_estimators':int(n_estimators),
+        'max_features': int(max_features),
+        'min_samples_split' : int(max(min_samples_split,2)),
+    }
+    clf = RandomForestClassifier(max_depth=params['max_depth'],n_estimators=params['n_estimators'],
+                                 min_samples_split = params['min_samples_split'])
+    score = stratified_kfold_score(clf,X1_train, y1_train,5)
+    return score
+
+rf_bo = BayesianOptimization(bo_params_rf, {
+                                                'max_depth':(4,30),
+                                              'n_estimators':(4,200),
+    'max_features': (3,9),
+                                            'min_samples_split': (2,10),
+                                             })
+
+results = rf_bo.maximize(n_iter=5, init_points=8,acq='ei')
+#Model
+params = rf_bo.max['params']
+params['n_estimators']= int(params['n_estimators'])
+#print(params)
+#Grid search boards_till_mediate
+rf_grid=RandomForestClassifier(max_depth=params['max_depth'],n_estimators=params['n_estimators'], min_samples_split = int(params['min_samples_split']), max_features=int(params['max_features']))
+rf_grid.fit(X1_train, y1_train)
+
+rf_grid.score(X1_train, y1_train)
+rf_grid.score(X1_test, y1_test)
+
+ygrid_pred=rf_grid.predict(X1_test)
+cfBO1=confusion_matrix(y1_test, ygrid_pred)
+sns.heatmap(cfBO1/np.sum(cfBO1), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y1_test, ygrid_pred, average='weighted')
+
+#######
+#60 iterations
+
+def clean_dataset(df):
+    assert isinstance(df, pd.DataFrame), "df needs to be a pd.DataFrame"
+    df.dropna(inplace=True)
+    indices_to_keep = ~df.isin([np.nan, np.inf, -np.inf]).any(1)
+    return df[indices_to_keep].astype(np.float64)
+
+
+
+clean_dataset(X1_train)
+clean_dataset(X2_train)
+
+def stratified_kfold_score(clf,X,y,n_fold):
+    X,y = X.values,y.values
+    strat_kfold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=1)
+    accuracy_list = []
+
+    for train_index, test_index in strat_kfold.split(X, y):
+        x_train_fold, x_test_fold = X[train_index], X[test_index]
+        y_train_fold, y_test_fold = y[train_index], y[test_index]
+        clf.fit(x_train_fold, y_train_fold)
+        preds = clf.predict(x_test_fold)
+        accuracy_test = accuracy_score(preds,y_test_fold)
+        accuracy_list.append(accuracy_test)
+
+    return np.array(accuracy_list).mean()
+
+def bo_params_rf(n_estimators,max_depth, max_features, min_samples_split):
+    
+    params = {
+        'max_depth':max_depth,
+        'n_estimators':int(n_estimators),
+        'max_features': int(max_features),
+        'min_samples_split' : int(max(min_samples_split,2)),
+    }
+    clf = RandomForestClassifier(max_depth=params['max_depth'],n_estimators=params['n_estimators'],
+                                 min_samples_split = params['min_samples_split'])
+    score = stratified_kfold_score(clf,X1_train, y1_train,5)
+    return score
+
+rf_bo = BayesianOptimization(bo_params_rf, {
+                                                'max_depth':(4,30),
+                                              'n_estimators':(4,200),
+    'max_features': (3,9),
+                                            'min_samples_split': (2,10),
+                                             })
+
+results = rf_bo.maximize(n_iter=60, init_points=8,acq='ei')
+
+params = rf_bo.max['params']
+params['n_estimators']= int(params['n_estimators'])
+#print(params)
+#Grid search boards_till_mediate
+rf_grid=RandomForestClassifier(max_depth=params['max_depth'],n_estimators=params['n_estimators'], min_samples_split = int(params['min_samples_split']), max_features=int(params['max_features']))
+rf_grid.fit(X1_train, y1_train)
+
+rf_grid.score(X1_train, y1_train)
+rf_grid.score(X1_test, y1_test)
+
+ygrid_pred=rf_grid.predict(X1_test)
+cfBO2=confusion_matrix(y1_test, ygrid_pred)
+sns.heatmap(cfBO2/np.sum(cfBO2), annot=True, 
+            fmt='.2%', cmap='Blues')
+
+
+f1_score(y1_test, ygrid_pred, average='weighted')
+
+#######
+#100 iterations
+
+def clean_dataset(df):
+    assert isinstance(df, pd.DataFrame), "df needs to be a pd.DataFrame"
+    df.dropna(inplace=True)
+    indices_to_keep = ~df.isin([np.nan, np.inf, -np.inf]).any(1)
+    return df[indices_to_keep].astype(np.float64)
+
+
+
+clean_dataset(X1_train)
+clean_dataset(X2_train)
+
+def stratified_kfold_score(clf,X,y,n_fold):
+    X,y = X.values,y.values
+    strat_kfold = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=1)
+    accuracy_list = []
+
+    for train_index, test_index in strat_kfold.split(X, y):
+        x_train_fold, x_test_fold = X[train_index], X[test_index]
+        y_train_fold, y_test_fold = y[train_index], y[test_index]
+        clf.fit(x_train_fold, y_train_fold)
+        preds = clf.predict(x_test_fold)
+        accuracy_test = accuracy_score(preds,y_test_fold)
+        accuracy_list.append(accuracy_test)
+
+    return np.array(accuracy_list).mean()
+
+def bo_params_rf(n_estimators,max_depth, max_features, min_samples_split):
+    
+    params = {
+        'max_depth':max_depth,
+        'n_estimators':int(n_estimators),
+        'max_features': int(max_features),
+        'min_samples_split' : int(max(min_samples_split,2)),
+    }
+    clf = RandomForestClassifier(max_depth=params['max_depth'],n_estimators=params['n_estimators'],
+                                 min_samples_split = params['min_samples_split'])
+    score = stratified_kfold_score(clf,X1_train, y1_train,5)
+    return score
+
+rf_bo = BayesianOptimization(bo_params_rf, {
+                                                'max_depth':(4,30),
+                                              'n_estimators':(4,200),
+    'max_features': (3,9),
+                                            'min_samples_split': (2,10),
+                                             })
+
+results = rf_bo.maximize(n_iter=100, init_points=8,acq='ei')
+
+params = rf_bo.max['params']
+params['n_estimators']= int(params['n_estimators'])
+#print(params)
+#Grid search boards_till_mediate
+rf_grid=RandomForestClassifier(max_depth=params['max_depth'],n_estimators=params['n_estimators'], min_samples_split = int(params['min_samples_split']), max_features=int(params['max_features']))
+rf_grid.fit(X1_train, y1_train)
+
+rf_grid.score(X1_train, y1_train)
+rf_grid.score(X1_test, y1_test)
+
+ygrid_pred=rf_grid.predict(X1_test)
+cfgrid=confusion_matrix(y1_test, ygrid_pred)
+sns.heatmap(cfgrid/np.sum(cfgrid), annot=True, 
+            fmt='.2%', cmap='Blues')
+f1_score(y1_test, ygrid_pred, average='weighted')
+###########################################################
+#Shapley values
+
+!pip install shap
+import shap
+
+#Boards till mediate
+explainer = shap.TreeExplainer(rf1)
+shap_values = explainer.shap_values(X1_train)
+shap.summary_plot(shap_values, features=X1_train, feature_names=X1_train.columns)
+shap.initjs()
+
+#Boards till bad
+explainer = shap.TreeExplainer(rf2)
+shap_values = explainer.shap_values(X2_train)
+shap.summary_plot(shap_values, features=X2_train, feature_names=X2_train.columns)
